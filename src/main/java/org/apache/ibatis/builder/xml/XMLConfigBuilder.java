@@ -117,6 +117,7 @@ public class XMLConfigBuilder extends BaseBuilder {
       environmentsElement(root.evalNode("environments"));
       databaseIdProviderElement(root.evalNode("databaseIdProvider"));
       typeHandlerElement(root.evalNode("typeHandlers"));
+      //解析Mapper映射文件
       mapperElement(root.evalNode("mappers"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
@@ -364,25 +365,31 @@ public class XMLConfigBuilder extends BaseBuilder {
   private void mapperElement(XNode parent) throws Exception {
     if (parent != null) {
       for (XNode child : parent.getChildren()) {
+        // 通过package配置加载映射文件
         if ("package".equals(child.getName())) {
+          //获取包名，并解析
           String mapperPackage = child.getStringAttribute("name");
           configuration.addMappers(mapperPackage);
+          //  通过resource/url/class的其中一种方式加载映射文件，三者只能配置其中一种属性，否则解析报错;
         } else {
           String resource = child.getStringAttribute("resource");
           String url = child.getStringAttribute("url");
           String mapperClass = child.getStringAttribute("class");
+          //解析resource方式配置的映射文件
           if (resource != null && url == null && mapperClass == null) {
             ErrorContext.instance().resource(resource);
             try(InputStream inputStream = Resources.getResourceAsStream(resource)) {
               XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource, configuration.getSqlFragments());
               mapperParser.parse();
             }
+            //解析url方式配置的映射文件
           } else if (resource == null && url != null && mapperClass == null) {
             ErrorContext.instance().resource(url);
             try(InputStream inputStream = Resources.getUrlAsStream(url)){
               XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, url, configuration.getSqlFragments());
               mapperParser.parse();
             }
+            //解析class方式配置的映射文件
           } else if (resource == null && url == null && mapperClass != null) {
             Class<?> mapperInterface = Resources.classForName(mapperClass);
             configuration.addMapper(mapperInterface);

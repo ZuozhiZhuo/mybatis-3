@@ -103,17 +103,31 @@ public class MapperBuilderAssistant extends BaseBuilder {
     return currentNamespace + "." + base;
   }
 
+  /**
+   * 尝试获取命名空间对应的缓存，如果获取不到则抛出异常
+   * @param namespace
+   * @return
+   */
   public Cache useCacheRef(String namespace) {
     if (namespace == null) {
       throw new BuilderException("cache-ref element requires a namespace attribute.");
     }
     try {
+      //标记为没有解析到
+      //TODO 这个代码的意义是什么？后面有用
       unresolvedCacheRef = true;
+      //获取引用的空间的 Cache
       Cache cache = configuration.getCache(namespace);
+      /*
+      没有找到缓存则抛出异常，没有找到缓存的原因有两个：
+      1： 引用空间不存在
+      2:  引用空间还没有被创建
+       */
       if (cache == null) {
         throw new IncompleteElementException("No cache for namespace '" + namespace + "' could be found.");
       }
       currentCache = cache;
+      //标记为已解析到
       unresolvedCacheRef = false;
       return cache;
     } catch (IllegalArgumentException e) {
@@ -128,16 +142,19 @@ public class MapperBuilderAssistant extends BaseBuilder {
       boolean readWrite,
       boolean blocking,
       Properties props) {
+    //使用建造者模式构建缓存实例
     Cache cache = new CacheBuilder(currentNamespace)
-        .implementation(valueOrDefault(typeClass, PerpetualCache.class))
-        .addDecorator(valueOrDefault(evictionClass, LruCache.class))
+        .implementation(valueOrDefault(typeClass, PerpetualCache.class)) // 设置实现类
+        .addDecorator(valueOrDefault(evictionClass, LruCache.class)) // 增加装饰器类，TODO 后面细讲
         .clearInterval(flushInterval)
         .size(size)
         .readWrite(readWrite)
         .blocking(blocking)
         .properties(props)
-        .build();
+        .build(); //构建，详细看细节
+    //将缓存存入configuration进行统一管理
     configuration.addCache(cache);
+    //TODO ？？
     currentCache = cache;
     return cache;
   }

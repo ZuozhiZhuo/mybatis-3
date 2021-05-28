@@ -32,8 +32,15 @@ import org.apache.ibatis.io.SerialFilterChecker;
 /**
  * @author Clinton Begin
  */
+/*
+* 序列化缓存装饰器，此装饰器在存放对象时将对象进行序列化，取出时则进行反序列化，所以每次取出的对象都是不一样的对象
+* mybatis利用这个装饰器实现 readOnly配置，每次获取到的对象都是不同的对象，所以其他地方修改缓存对象不会影响此处的属性值
+* */
 public class SerializedCache implements Cache {
 
+  /**
+   * 代理缓存
+   */
   private final Cache delegate;
 
   public SerializedCache(Cache delegate) {
@@ -53,8 +60,10 @@ public class SerializedCache implements Cache {
   @Override
   public void putObject(Object key, Object object) {
     if (object == null || object instanceof Serializable) {
+      //存入一个序列化的实例对象
       delegate.putObject(key, serialize((Serializable) object));
     } else {
+      //对象不可序列化则会报错
       throw new CacheException("SharedCache failed to make a copy of a non-serializable object: " + object);
     }
   }
@@ -62,6 +71,7 @@ public class SerializedCache implements Cache {
   @Override
   public Object getObject(Object key) {
     Object object = delegate.getObject(key);
+    //反序列化获取对象，每次返回的对象都是不同的对象
     return object == null ? null : deserialize((byte[]) object);
   }
 
@@ -85,6 +95,9 @@ public class SerializedCache implements Cache {
     return delegate.equals(obj);
   }
 
+  /*
+  序列化
+   */
   private byte[] serialize(Serializable value) {
     try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos)) {
@@ -96,6 +109,9 @@ public class SerializedCache implements Cache {
     }
   }
 
+  /*
+  反序列化
+   */
   private Serializable deserialize(byte[] value) {
     SerialFilterChecker.check();
     Serializable result;

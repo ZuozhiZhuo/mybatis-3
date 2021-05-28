@@ -91,8 +91,11 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   public void parse() {
+    //判断是否已经被加载过，未加载过则加载（已经加载的资源会被Configuration类缓存，）
     if (!configuration.isResourceLoaded(resource)) {
+      //解析mapper映射文件
       configurationElement(parser.evalNode("/mapper"));
+      // 将该资源加入到已加载资源中
       configuration.addLoadedResource(resource);
       bindMapperForNamespace();
     }
@@ -108,14 +111,20 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void configurationElement(XNode context) {
     try {
+      //获取namespace
       String namespace = context.getStringAttribute("namespace");
+      //未指定namespace则抛出异常
       if (namespace == null || namespace.isEmpty()) {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
+      //TODO 未理解builderAssistant的作用
       builderAssistant.setCurrentNamespace(namespace);
+      // 解析 <cache-ref/> 节点
       cacheRefElement(context.evalNode("cache-ref"));
+      //解析 <cache/> 节点
       cacheElement(context.evalNode("cache"));
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
+      //解析 <resultMap> 节点
       resultMapElements(context.evalNodes("/mapper/resultMap"));
       sqlElement(context.evalNodes("/mapper/sql"));
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
@@ -189,11 +198,18 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void cacheRefElement(XNode context) {
     if (context != null) {
+      //将引用关系保存，以供后期使用
       configuration.addCacheRef(builderAssistant.getCurrentNamespace(), context.getStringAttribute("namespace"));
+      //创建CacheRefResolver
       CacheRefResolver cacheRefResolver = new CacheRefResolver(builderAssistant, context.getStringAttribute("namespace"));
       try {
+        //解析缓存存不存在，没有找到缓存则抛出IncompleteElementException异常，没有找到缓存的原因有两个：
+        //      1： 引用空间不存在
+        //      2:  引用空间还没有被创建
         cacheRefResolver.resolveCacheRef();
       } catch (IncompleteElementException e) {
+        //TODO 回头看这个问题
+        //没有完成缓存引用解析的所有CacheRefResolver会被保存在这里，后面进行统一处理
         configuration.addIncompleteCacheRef(cacheRefResolver);
       }
     }
@@ -201,15 +217,25 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void cacheElement(XNode context) {
     if (context != null) {
+      //获取缓存实现，默认使用 PERPETUAL
       String type = context.getStringAttribute("type", "PERPETUAL");
+      //从别名中获取Class
       Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
+      //获取清除策略算法，默认使用 LRU ，另外还有 FIFO 先进先出、 SOFT 软引用 、 WEAK 弱引用
       String eviction = context.getStringAttribute("eviction", "LRU");
+      //从别名中获取 Class
       Class<? extends Cache> evictionClass = typeAliasRegistry.resolveAlias(eviction);
+      //获取刷新间隔配置
       Long flushInterval = context.getLongAttribute("flushInterval");
+      //获取 对象缓存容量
       Integer size = context.getIntAttribute("size");
+      //只读的缓存会给所有调用者返回缓存对象的相同实例。 因此这些对象不能被修改。这就提供了可观的性能提升。而可读写的缓存会（通过序列化）返回缓存对象的拷贝。 速度上会慢一些，但是更安全，因此默认值是 false
       boolean readWrite = !context.getBooleanAttribute("readOnly", false);
+      //多个线程在向数据库请求同一数据时，是否阻塞其他缓存线程
       boolean blocking = context.getBooleanAttribute("blocking", false);
+      //获取子<property>节点属性
       Properties props = context.getChildrenAsProperties();
+      //构建缓存对象
       builderAssistant.useNewCache(typeClass, evictionClass, flushInterval, size, readWrite, blocking, props);
     }
   }

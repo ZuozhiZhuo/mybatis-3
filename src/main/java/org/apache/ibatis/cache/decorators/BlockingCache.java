@@ -34,10 +34,23 @@ import org.apache.ibatis.cache.CacheException;
  * @author Eduardo Macarron
  *
  */
+/*
+线程阻塞缓存装饰器，保证只有一个线程到数据库中查找指定key对应的数据
+ */
 public class BlockingCache implements Cache {
 
+  /*
+  CountDownLatch 等待锁的超时时间
+   */
   private long timeout;
+  /*
+  委托缓存对象
+   */
   private final Cache delegate;
+
+  /**
+   * 用来存储所有的CountDownLatch
+   */
   private final ConcurrentHashMap<Object, CountDownLatch> locks;
 
   public BlockingCache(Cache delegate) {
@@ -66,12 +79,15 @@ public class BlockingCache implements Cache {
 
   @Override
   public Object getObject(Object key) {
+    //获取锁
     acquireLock(key);
     Object value = delegate.getObject(key);
     if (value != null) {
+      //释放锁
       releaseLock(key);
     }
     return value;
+
   }
 
   @Override
@@ -87,19 +103,27 @@ public class BlockingCache implements Cache {
   }
 
   private void acquireLock(Object key) {
+    //创建一个 CountDownLatch
     CountDownLatch newLatch = new CountDownLatch(1);
+
+    //TODO 初步分析 locks 会存储很多没用的对象
+    //确保超时后能够继续等待
     while (true) {
       CountDownLatch latch = locks.putIfAbsent(key, newLatch);
+      //为空则表示之前没有put过 CountDownLatch ,则直接成功，结束循环退出方法
       if (latch == null) {
         break;
       }
+      //不为空则要等待其他线程释放资源
       try {
+        // 超时等待其他线程释放资源
         if (timeout > 0) {
           boolean acquired = latch.await(timeout, TimeUnit.MILLISECONDS);
           if (!acquired) {
             throw new CacheException(
                 "Couldn't get a lock in " + timeout + " for the key " + key + " at the cache " + delegate.getId());
           }
+          // 无限制等待其他线程释放资源
         } else {
           latch.await();
         }
@@ -110,6 +134,7 @@ public class BlockingCache implements Cache {
   }
 
   private void releaseLock(Object key) {
+    //移除 CountDownLatch
     CountDownLatch latch = locks.remove(key);
     if (latch == null) {
       throw new IllegalStateException("Detected an attempt at releasing unacquired lock. This should never happen.");

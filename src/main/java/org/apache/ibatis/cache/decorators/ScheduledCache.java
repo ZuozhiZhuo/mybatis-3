@@ -22,6 +22,7 @@ import org.apache.ibatis.cache.Cache;
 /**
  * @author Clinton Begin
  */
+// 定时清除缓存装饰器（并非使用定时任务来清除，而是在方法被调用时做一次超时判断）
 public class ScheduledCache implements Cache {
 
   private final Cache delegate;
@@ -30,7 +31,10 @@ public class ScheduledCache implements Cache {
 
   public ScheduledCache(Cache delegate) {
     this.delegate = delegate;
+    // 默认设置缓存为一个小时
+    //TODO 为什么设置1小时，出于什么考虑？
     this.clearInterval = TimeUnit.HOURS.toMillis(1);
+    // 设置最后刷新时间为当前
     this.lastClear = System.currentTimeMillis();
   }
 

@@ -155,6 +155,9 @@ public class Configuration {
   protected final Map<String, MappedStatement> mappedStatements = new StrictMap<MappedStatement>("Mapped Statements collection")
       .conflictMessageProducer((savedValue, targetValue) ->
           ". please check " + savedValue.getResource() + " and " + targetValue.getResource());
+  /**
+   * 用于存储二级缓存对象实例 namespace -> Cache
+   */
   protected final Map<String, Cache> caches = new StrictMap<>("Caches collection");
   protected final Map<String, ResultMap> resultMaps = new StrictMap<>("Result Maps collection");
   protected final Map<String, ParameterMap> parameterMaps = new StrictMap<>("Parameter Maps collection");
@@ -173,6 +176,7 @@ public class Configuration {
    * references a cache bound to another namespace and the value is the
    * namespace which the actual cache is bound to.
    */
+  //持有cache-ref关系的map。key是引用绑定到另一个名称空间的缓存的名称空间，value是实际缓存绑定到的名称空间。
   protected final Map<String, String> cacheRefMap = new HashMap<>();
 
   public Configuration(Environment environment) {
